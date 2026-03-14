@@ -1,15 +1,10 @@
-import { createParamDecorator, ExecutionContext } from "@nestjs/common";
-import { User } from "src/generated/prisma/client";
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { Role } from '../enums/role.enum';
 
+type UserKey = 'id' | 'name' | 'email' | 'role';
 
-export const Authorized = createParamDecorator(
-   (data: keyof User, ctx: ExecutionContext) => { 
-       const request = ctx.switchToHttp().getRequest() as any;
-
-
-       const user = request.user as User;
-
-
-       return data ? user?.[data] : user;
-   },
- );
+export const Authorized = (key: UserKey) =>
+  createParamDecorator((data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.user ? request.user[key] : null;
+  })();

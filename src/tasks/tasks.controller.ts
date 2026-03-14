@@ -3,57 +3,79 @@ import {
   Get,
   Post,
   Body,
+  Patch,
   Param,
   Delete,
-  Query,
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
-import { TaskStatus } from '@prisma/client';
-import { ApiResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UpdateTaskDto } from './dto/update-task.dto';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Authorization } from 'src/auth/decorators/authorization.decorator';
+import { Authorized } from 'src/auth/decorators/authorized.decorator';
+import { Role } from 'src/auth/enums/role.enum';
+import { User } from 'src/generated/prisma/client';
 
-
-@ApiTags('Tasks')
+@ApiTags('tasks')
 @Controller('tasks')
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
-  @ApiOperation({ summary: 'Создание задачи' })
-  @ApiResponse({ status: 201, description: 'Задача успешно создана' })
-  @ApiResponse({ status: 400, description: 'Некорректные данные' })
+  // ---------------- CREATE TASK ----------------
+  @ApiOperation({ summary: 'Create task' })
+  @ApiResponse({ status: 201, description: 'Task is successfully created.' })
+  @Authorization()
   @Post()
-  create(@Body() dto: CreateTaskDto) {
-    return this.tasksService.create(dto);
+  create(
+    @Body() dto: CreateTaskDto,
+    @Authorized('id') userId: string, // id из JWT
+  ) {
+    return this.tasksService.create(dto, userId);
   }
 
-  @ApiOperation({ summary: 'Получение всех задач' })
-  @ApiResponse({ status: 200, description: 'Список всех задач' })
+  // ---------------- GET ALL TASKS ----------------
+  @ApiOperation({ summary: 'Get all tasks' })
   @Get()
-  findAll(@Query('status') status?: TaskStatus) {
-    return this.tasksService.findAll(status);
+  findAll() {
+    return this.tasksService.findAll();
   }
 
-  @ApiOperation({ summary: 'Получение пользователей задачи' })
-  @ApiResponse({ status: 200, description: 'Список пользователей задачи' })
-  @ApiResponse({ status: 404, description: 'Задача не найдена' })
-  @Get(':id/users')
-  findUsers(@Param('id') id: string) {
-    return this.tasksService.findWithUsers(id);
-  }
-
-  @ApiOperation({ summary: 'Получение задачи по ID' })
-  @ApiResponse({ status: 200, description: 'Задача найдена' })
-  @ApiResponse({ status: 404, description: 'Задача не найдена' })
+  // ---------------- GET TASK BY ID ----------------
+  @ApiOperation({ summary: 'Get task by id' })
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.tasksService.findOne(id);
   }
 
-  @ApiOperation({ summary: 'Удаление задачи по ID' })
-  @ApiResponse({ status: 200, description: 'Задача успешно удалена' })
-  @ApiResponse({ status: 404, description: 'Задача не найдена' })
+  // ---------------- UPDATE TASK ----------------
+  @ApiOperation({ summary: 'Patch your task' })
+  @ApiResponse({
+    status: 403,
+    description: 'You can only update your own task.',
+  })
+  @Authorization()
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateTaskDto,
+    @Authorized('id') userId: string, // id из JWT
+  ) {
+    return this.tasksService.update(id, dto, userId);
+  }
+
+  // ---------------- DELETE TASK ----------------
+  @ApiOperation({ summary: 'Delete your task' })
+  @ApiResponse({
+    status: 403,
+    description: 'You can only delete your own task.',
+  })
+  @Authorization()
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.tasksService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @Authorized('id') userId: string,   // id из JWT
+    @Authorized('role') userRole: Role // роль из JWT
+  ) {
+    return this.tasksService.remove(id, userId, userRole);
   }
 }
